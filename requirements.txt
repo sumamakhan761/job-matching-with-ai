@@ -1,0 +1,9 @@
+langchain-core
+langchain_groq
+langchain_community
+chromadb
+pandas
+streamlit
+gradio
+bs4
+PyPDF2
