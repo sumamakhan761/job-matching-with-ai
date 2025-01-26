@@ -1,7 +1,7 @@
 langchain-core
 langchain_groq
 langchain_community
-chromadb
+chromadb==0.3.29
 langchain_chroma
 faiss-cpu
 pandas
