@@ -5,6 +5,7 @@ import pandas as pd
 import uuid
 from langchain_groq import ChatGroq
 import streamlit as st
+from langchain_chroma import Chroma
 import chromadb
 import PyPDF2
 import os

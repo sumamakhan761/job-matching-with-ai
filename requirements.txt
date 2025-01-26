@@ -2,6 +2,8 @@ langchain-core
 langchain_groq
 langchain_community
 chromadb
+langchain_chroma
+faiss-cpu
 pandas
 streamlit
 gradio
