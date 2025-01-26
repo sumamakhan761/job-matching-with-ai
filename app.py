@@ -6,13 +6,11 @@ import uuid
 from langchain_groq import ChatGroq
 import streamlit as st
 import chromadb
-from bs4 import BeautifulSoup
 import PyPDF2
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
-# Initialize the LLM
 llm = ChatGroq(
     temperature=0,
     groq_api_key=os.getenv("GROQ"),
@@ -21,7 +19,7 @@ llm = ChatGroq(
 
 def preprocess_job_posting(url, portfolio_file):
     try:
-        # Check if the uploaded file is a CSV or PDF
+        
         if portfolio_file.name.endswith('.csv'):
             df = pd.read_csv(portfolio_file)
         elif portfolio_file.name.endswith('.pdf'):
@@ -30,17 +28,17 @@ def preprocess_job_posting(url, portfolio_file):
             for page in pdf_reader.pages:
                 pdf_text += page.extract_text()
 
-            # Convert PDF text into a DataFrame assuming one skill per line
+           
             data = [line.strip() for line in pdf_text.split("\n") if line.strip()]
             df = pd.DataFrame(data, columns=['Technology'])
         else:
             return {"error": "Unsupported file format. Please upload a CSV or PDF file."}
 
-        # Scrape job posting
+       
         loader = WebBaseLoader(url)
         page_data = loader.load().pop().page_content
 
-        # Extract job details using the LLM
+      
         prompt_extract = PromptTemplate.from_template("""
             ### SCRAPED TEXT FROM WEBSITE:
             {page_data}
@@ -54,18 +52,18 @@ def preprocess_job_posting(url, portfolio_file):
         chain_extract = prompt_extract | llm
         res_1 = chain_extract.invoke(input={'page_data': page_data})
 
-        # Parse the JSON response
+       
         json_parser = JsonOutputParser()
         json_res = json_parser.parse(res_1.content)
 
-        # Prepare ChromaDB collection
+       
         client = chromadb.PersistentClient('vectorstore')
         collections = client.get_or_create_collection(name="technology_table")
         if not collections.count():
             for _, row in df.iterrows():
                 collections.add(documents=row['Technology'], ids=[str(uuid.uuid4())])
 
-        # Match skills and generate interview questions
+     
         job = json_res.get('skills', []) if type(json_res) == dict else json_res[0].get('skills', [])
 
         prompt_skills_and_question = PromptTemplate.from_template("""
@@ -88,39 +86,34 @@ def preprocess_job_posting(url, portfolio_file):
         chain_skills_and_question = prompt_skills_and_question | llm
         res2 = chain_skills_and_question.invoke({"job_description": str(job)})
 
-        # Parse the final result
+       
         final_result = json_parser.parse(res2.content)
         return final_result
 
     except Exception as e:
         return {"error": str(e)}
 
-# Streamlit App
+
 st.title("Job Scraping & Analyzer with Interview Preparation Questions")
 
-# Input fields
+
 url = st.text_input("Website URL", placeholder="Enter the URL of the job posting")
 portfolio_file = st.file_uploader("Upload Portfolio File (CSV or PDF)", type=["csv", "pdf"])
 
 if st.button("Analyze Job Posting"):
     if url and portfolio_file:
-        # Process the input
         result = preprocess_job_posting(url, portfolio_file)
 
-        # Display the result
         if "error" in result:
             st.error(f"Error: {result['error']}")
         else:
             st.subheader("Analysis Result")
-
-            # Display skills match in a separate container
             st.subheader("Skills Match")
             skills_match = result.get('skills_match', {})
             container = st.container(border=True)
             for skill, match in skills_match.items():
                 container.write(f"{skill}: {match}% match")
 
-            # Display interview questions in another container
             st.subheader("Interview Questions")
             interview_questions = result.get('interview_questions', [])
             container = st.container(border=True)
