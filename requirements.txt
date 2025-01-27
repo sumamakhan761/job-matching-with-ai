@@ -2,10 +2,9 @@ langchain-core
 langchain_groq
 langchain_community
 faiss_cpu
-langchain-chroma>=0.1.2
 pandas
 streamlit
-gradio
 bs4
 PyPDF2
 langchain_huggingface 
+tf-keras
