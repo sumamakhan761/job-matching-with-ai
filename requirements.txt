@@ -1,5 +1,4 @@
-chromadb>=0.3.21  # Replace with the required version
-gradio
+chromadb
 langchain_community
 langchain_core
 langchain_groq
@@ -8,4 +7,6 @@ pandas
 PyPDF2
 python-dotenv
 streamlit
-beautifulsoup4
+beautifulsoup4==4.11.1
+pysqlite3
+pysqlite3-binary
