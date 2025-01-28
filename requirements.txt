@@ -7,3 +7,5 @@ langchain_chroma
 pandas
 PyPDF2
 python-dotenv
+streamlit
+beautifulsoup4

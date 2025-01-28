@@ -5,14 +5,12 @@ import pandas as pd
 import uuid
 from langchain_groq import ChatGroq
 import streamlit as st
-from langchain.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
+import chromadb
 import PyPDF2
 import os
 from dotenv import load_dotenv
 load_dotenv()
-
-os.environ['HF_TOKEN'] = os.getenv('HF_TOKEN')
 
 llm = ChatGroq(
     temperature=0,
@@ -22,7 +20,7 @@ llm = ChatGroq(
 
 def preprocess_job_posting(url, portfolio_file):
     try:
-        # Load the portfolio file
+        
         if portfolio_file.name.endswith('.csv'):
             df = pd.read_csv(portfolio_file)
         elif portfolio_file.name.endswith('.pdf'):
@@ -31,16 +29,17 @@ def preprocess_job_posting(url, portfolio_file):
             for page in pdf_reader.pages:
                 pdf_text += page.extract_text()
 
+           
             data = [line.strip() for line in pdf_text.split("\n") if line.strip()]
             df = pd.DataFrame(data, columns=['Technology'])
         else:
             return {"error": "Unsupported file format. Please upload a CSV or PDF file."}
 
-        # Load the web page content
+       
         loader = WebBaseLoader(url)
         page_data = loader.load().pop().page_content
 
-        # Extract job postings from the scraped text
+      
         prompt_extract = PromptTemplate.from_template("""
             ### SCRAPED TEXT FROM WEBSITE:
             {page_data}
@@ -54,21 +53,20 @@ def preprocess_job_posting(url, portfolio_file):
         chain_extract = prompt_extract | llm
         res_1 = chain_extract.invoke(input={'page_data': page_data})
 
-        # Parse the JSON response
+       
         json_parser = JsonOutputParser()
         json_res = json_parser.parse(res_1.content)
 
-        embeddings=HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+       
+        client = chromadb.PersistentClient('vectorstore')
+        collections = client.get_or_create_collection(name="technology_table")
+        if not collections.count():
+            for _, row in df.iterrows():
+                collections.add(documents=row['Technology'], ids=[str(uuid.uuid4())])
 
-        # Initialize FAISS vector store
-        documents = df['Technology'].tolist()
-        ids = [str(uuid.uuid4()) for _ in documents]
-        faiss_store = FAISS.from_texts(documents, embeddings, ids=ids)
+     
+        job = json_res.get('skills', []) if type(json_res) == dict else json_res[0].get('skills', [])
 
-        # Extract skills from the job posting
-        job = json_res.get('skills', []) if isinstance(json_res, dict) else json_res[0].get('skills', [])
-
-        # Analyze skills and generate interview questions
         prompt_skills_and_question = PromptTemplate.from_template("""
             ### JOB DESCRIPTION:
             {job_description}
@@ -89,7 +87,7 @@ def preprocess_job_posting(url, portfolio_file):
         chain_skills_and_question = prompt_skills_and_question | llm
         res2 = chain_skills_and_question.invoke({"job_description": str(job)})
 
-        # Parse the final JSON response
+       
         final_result = json_parser.parse(res2.content)
         return final_result
 
@@ -98,6 +96,7 @@ def preprocess_job_posting(url, portfolio_file):
 
 
 st.title("Job Scraping & Analyzer with Interview Preparation Questions")
+
 
 url = st.text_input("Website URL", placeholder="Enter the URL of the job posting")
 portfolio_file = st.file_uploader("Upload Portfolio File (CSV or PDF)", type=["csv", "pdf"])
@@ -112,13 +111,13 @@ if st.button("Analyze Job Posting"):
             st.subheader("Analysis Result")
             st.subheader("Skills Match")
             skills_match = result.get('skills_match', {})
-            container = st.container()
+            container = st.container(border=True)
             for skill, match in skills_match.items():
                 container.write(f"{skill}: {match}% match")
 
             st.subheader("Interview Questions")
             interview_questions = result.get('interview_questions', [])
-            container = st.container()
+            container = st.container(border=True)
             for question in interview_questions:
                 container.write(f"- {question}")
     else:
