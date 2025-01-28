@@ -1,10 +1,9 @@
-langchain-core
-langchain_groq
+chromadb>=0.3.21  # Replace with the required version
+gradio
 langchain_community
-faiss_cpu
+langchain_core
+langchain_groq
+langchain_chroma
 pandas
-streamlit
-bs4
 PyPDF2
-langchain_huggingface 
-tf-keras
+python-dotenv
